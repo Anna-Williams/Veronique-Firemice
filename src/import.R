@@ -20,7 +20,7 @@ matrices <- here("data/filtered/",  metadata$Sample, "filtered_feature_bc_matrix
 
 
 # Create object -----
-sce <- read10xCounts(matrices, samples, version = "auto", col.names = TRUE)
+sce <- read10xCounts(matrices, sample.names = metadata$Sample, version = "auto", col.names = TRUE)
 # add the metadata
 coldata <- colData(sce)
 # keep the rownames (same as colnames of sce)
