@@ -1,0 +1,198 @@
+---
+title: "subset oligos"
+author: "Nadine Bestard"
+date: "12/09/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Set-up
+
+
+```{r set-up, message=FALSE, warning=FALSE}
+library(here) # for reproducible paths
+library(SingleCellExperiment)
+library(scater) # For qcs
+library(dplyr) # df manipulation
+library(scran) # For feature selcetion
+```
+
+## Import
+
+We import the dataset and subset for the clusters that had highest expression of Plp1 (they also had higher expression of other typical oligo genes such as Mog, Mag, Mbp). This includes clusters that also express genes from other celltypes, such as the OligoAstros, that express Astrocyte markers; a cluster that express immune cell markers and another that also expresses OPC markers. 
+
+
+```{r}
+project <- "fire-mice"
+if (!file.exists(here("processed", project, "sce_oligo.RDS"))) {
+  sce <- readRDS(here("processed", project, "sce_clusters_01.RDS"))
+  sce <- sce[, sce$cluster_k60 %in% c(2,4,6,10,18)]
+}else{
+  sce <- readRDS(here("processed", project, "sce_oligo.RDS"))
+}
+```
+
+# Cell and gene QC
+
+We need to bear in mind this dataset comes from a bigger dataset where outliers have already been excluded. 
+
+
+## Violin plots
+
+```{r}
+plotColData(sce, x = "Sample", y = "sum") +
+  ggtitle("Total count") 
+
+plotColData(sce, x = "Sample", y = "sum") +
+  scale_y_log10() + ggtitle("Total count log scale") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+plotColData(sce, x = "Sample", y = "detected") +
+  scale_y_log10() + ggtitle("Detected Genes") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+plotColData(sce, x = "Sample", y = "sum", colour_by = "chip") +
+  scale_y_log10() + ggtitle("total count by batch") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+plotColData(sce, x = "Sample", y = "sum", colour_by = "tissue") +
+  scale_y_log10() + ggtitle("total count by tissue") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+plotColData(sce, x = "Sample", y = "sum", colour_by = "genotype") +
+  scale_y_log10() + ggtitle("total count by genotype") +
+  scale_fill_manual(values = c("#888888", "#E25822")) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+plotColData(sce, x = "Sample", y = "subsets_mt_percent") +
+  ggtitle("Mitocchondrial percentatge") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+
+```
+
+## Histograms
+ 
+```{r}
+hist(
+  sce$detected,
+  breaks = 100
+)
+
+hist(
+  sce$subsets_mt_percent,
+  breaks = 100
+)
+```
+
+## Scatter plots
+
+```{r}
+plotColData(sce, x = "sum", y = "subsets_mt_percent", colour_by = "chip")
+plotColData(sce, x = "sum", y = "detected", colour_by = "outlier")
+plotColData(sce, x = "sum", y = "detected", colour_by = "Sample")
+plotColData(sce, x = "sum", y = "detected", colour_by = "genotype")
+```
+
+I do not trust the big red blob from sample 2660, cutting at 
+minimum 5000 umi counts will get rid of it. We can also cut at 10% mt genes. 
+
+## Dimensional redution
+
+This is the dimensional reduction done with the whole dataset, not as accurate as the one we will compute later, with only the oligos, but good enough for this quality control
+```{r}
+plotTSNE(sce, colour_by = "chip", point_size = 0.2)
+plotTSNE(sce, colour_by = "detected", point_size = 0.2)
+plotTSNE(sce, colour_by = "sum", point_size = 0.2)
+plotTSNE(sce, colour_by = "subsets_mt_percent", point_size = 0.2)
+```
+
+There is a small cluster, lower quality (lower umi and detected genes and higer mt genes pct) than the other clusters. We will delete this cluster. 
+
+## Tables
+
+```{r tables, paged.print=TRUE}
+  table(sce$Sample, sce$cluster_k60) %>% 
+  as.data.frame.matrix() %>% 
+  select(2,4,6,10,18)
+table(sce$genotype, sce$cluster_k60) %>% 
+  as.data.frame.matrix() %>% 
+  select(2,4,6,10,18)
+```
+
+
+## Subset to the best quality cells and delete non detectable genes
+
+```{r}
+if (!file.exists(here("processed", project, "sce_oligo.RDS"))) {
+  print("before filtering")
+  dim(sce)
+  # filter cells
+  keep_cells <- sce$sum >= 5000 &
+    sce$detected >= 2000 &
+    sce$subsets_mt_percent <= 10 &
+    sce$cluster_k60 != 2
+  sce <- sce[, keep_cells ]
+  # filter genes
+  keep_feature <- rowSums(counts(sce) > 0) > 1
+  sce <- sce[keep_feature, ]
+  print("after filtering")
+  dim(sce)
+  # save results
+  saveRDS(sce, here("processed", project, "sce_oligo.RDS") )
+}
+```
+
+
+before filtering: 23155 genes 16358 cells
+after filtering :  19506 genes  13583 cells
+
+
+# Feature selection and dimensional reduction
+
+## Quantify per-gene variation
+
+We quantify per-gene variation computing the variance of the log-normalized expression values (referred to as "log-counts" for simplicity) for each gene across all cells in the population (A. T. L. Lun, McCarthy, and Marioni 2016). We use modelGeneVar() that does also corrects for the abundance of each gene.
+
+```{r}
+#The density weights are removed because the genes
+# with highest mean abundance are also HVG, this avoids overfiting
+gene_var_df <- modelGeneVar(sce, density.weights=FALSE )
+gene_var <- metadata(gene_var_df)
+plot(gene_var$mean, gene_var$var, xlab= "Mean of log-expression", ylab= "Variance of log-expression")
+curve(gene_var$trend(x), lwd=2, add=T, col = "red")
+```
+
+## Select the HVGs
+
+The next step is to select the subset of HVGs to use in downstream analyses. The simplest HVG selection strategy is to take the top X genes with the largest values for the relevant variance metric. Here I select the top 15 % of genes.
+
+```{r}
+hvgs <- getTopHVGs(gene_var_df, prop=0.15)
+# save them in the object
+rowSubset(sce) <- hvgs
+```
+
+This leaves us with `r length(hvgs)` highly variable genes.
+
+```{r}
+plot(gene_var$mean, gene_var$var, xlab= "Mean of log-expression", ylab= "Variance of log-expression")
+points(gene_var$mean[hvgs], gene_var$var[hvgs], col = "red")
+curve(gene_var$trend(x), lwd=2, add=T, col = "red")
+```
+
+## Run PCA and choose PCs
+```{r}
+# re-write pca
+set.seed(1000)
+sce <- runPCA(sce)
+```
+
+```{r}
+pct_var <- attr(reducedDim(sce, "PCA"), "percentVar")
+plot(pct_var, log="y", xlab="PC", ylab="pct variance explained")
+# r
+reducedDim(sce, "PCA") <- reducedDim(sce, "PCA")[,1:25]
+```
+## Rerun batch correction
