@@ -18,6 +18,8 @@ library(SingleCellExperiment)
 library(scater) # For qcs
 library(dplyr) # df manipulation
 library(scran) # For feature selcetion
+library(ggplot2) # To add titles to plots
+library(batchelor) # Batch correction
 ```
 
 ## Import
@@ -27,12 +29,8 @@ We import the dataset and subset for the clusters that had highest expression of
 
 ```{r}
 project <- "fire-mice"
-if (!file.exists(here("processed", project, "sce_oligo.RDS"))) {
-  sce <- readRDS(here("processed", project, "sce_clusters_01.RDS"))
-  sce <- sce[, sce$cluster_k60 %in% c(2,4,6,10,18)]
-}else{
-  sce <- readRDS(here("processed", project, "sce_oligo.RDS"))
-}
+sce <- readRDS(here("processed", project, "sce_clusters_01.RDS"))
+sce <- sce[, sce$cluster_k60 %in% c(1,6,5,7, 12, 15, 16)]
 ```
 
 # Cell and gene QC
@@ -62,7 +60,7 @@ plotColData(sce, x = "Sample", y = "sum", colour_by = "tissue") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 plotColData(sce, x = "Sample", y = "sum", colour_by = "genotype") +
   scale_y_log10() + ggtitle("total count by genotype") +
-  scale_fill_manual(values = c("#888888", "#E25822")) +
+  scale_colour_manual(values = c("#E25822", "#888888")) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 
 plotColData(sce, x = "Sample", y = "subsets_mt_percent") +
@@ -89,10 +87,10 @@ hist(
 ## Scatter plots
 
 ```{r}
-plotColData(sce, x = "sum", y = "subsets_mt_percent", colour_by = "chip")
-plotColData(sce, x = "sum", y = "detected", colour_by = "outlier")
 plotColData(sce, x = "sum", y = "detected", colour_by = "Sample")
-plotColData(sce, x = "sum", y = "detected", colour_by = "genotype")
+plotColData(sce, x = "sum", y = "subsets_mt_percent", colour_by = "Sample")
+plotColData(sce, x = "sum", y = "subsets_mt_percent", colour_by = "chip")
+plotColData(sce, x = "sum", y = "subsets_mt_percent", colour_by = "genotype")
 ```
 
 I do not trust the big red blob from sample 2660, cutting at 
@@ -115,14 +113,17 @@ There is a small cluster, lower quality (lower umi and detected genes and higer 
 ```{r tables, paged.print=TRUE}
   table(sce$Sample, sce$cluster_k60) %>% 
   as.data.frame.matrix() %>% 
-  select(2,4,6,10,18)
+  select(1,6,5,7, 12, 15, 16)
 table(sce$genotype, sce$cluster_k60) %>% 
   as.data.frame.matrix() %>% 
-  select(2,4,6,10,18)
+  select(1,6,5,7, 12, 15, 16)
 ```
 
+The small cluster only present in the WT also has microglia markers. Most lickeley it comes from microglia
+"eating" oligodendrocytes. We will remove this cluster.
 
 ## Subset to the best quality cells and delete non detectable genes
+
 
 ```{r}
 if (!file.exists(here("processed", project, "sce_oligo.RDS"))) {
@@ -132,7 +133,7 @@ if (!file.exists(here("processed", project, "sce_oligo.RDS"))) {
   keep_cells <- sce$sum >= 5000 &
     sce$detected >= 2000 &
     sce$subsets_mt_percent <= 10 &
-    sce$cluster_k60 != 2
+    !(sce$cluster_k60 %in% c(15, 16))
   sce <- sce[, keep_cells ]
   # filter genes
   keep_feature <- rowSums(counts(sce) > 0) > 1
@@ -146,7 +147,22 @@ if (!file.exists(here("processed", project, "sce_oligo.RDS"))) {
 
 
 before filtering: 23155 genes 16358 cells
+
 after filtering :  19506 genes  13583 cells
+
+result: 
+```{r}
+if (!file.exists(here("processed", project, "sce_oligo.RDS"))) {
+plotColData(sce, x = "Sample", y = "sum", colour_by = "chip") +
+  scale_y_log10() + ggtitle("total count by batch after filering") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+}else{
+sce <- readRDS( here("processed", project, "sce_oligo.RDS") )
+plotColData(sce, x = "Sample", y = "sum", colour_by = "chip") +
+  scale_y_log10() + ggtitle("total count by batch after filering") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+}
+```
 
 
 # Feature selection and dimensional reduction
@@ -183,16 +199,62 @@ curve(gene_var$trend(x), lwd=2, add=T, col = "red")
 ```
 
 ## Run PCA and choose PCs
-```{r}
-# re-write pca
+
+Here we recompute the dimensional reduction to better fit our subsetted oligo data. This will remove the 
+dimensional batch correction performed earlier, that will be recomputed. 
+
+```{r pca}
+# Delete all previous dimensions, done with all genes, to not use the wrong ones
+reducedDims(sce) <- NULL
+# re-run pca
 set.seed(1000)
 sce <- runPCA(sce)
 ```
 
-```{r}
+
+```{r pca-plots}
 pct_var <- attr(reducedDim(sce, "PCA"), "percentVar")
 plot(pct_var, log="y", xlab="PC", ylab="pct variance explained")
-# r
+# rerun PCA
 reducedDim(sce, "PCA") <- reducedDim(sce, "PCA")[,1:25]
+# rerun TSNE if it's not already done
+if (!(file.exists(
+  here("processed", project,  "sce_oligo_corrected.RDS")
+))) {
+set.seed(1000)
+sce <- runTSNE(sce)
+plotReducedDim(sce, "TSNE", colour_by = "chip")
+}else{ # load teh corrected object
+  sce <- readRDS(here("processed", project,  "sce_oligo_corrected.RDS"))
+  plotReducedDim(sce, "TSNE_uncorrected")
+}
 ```
+
 ## Rerun batch correction
+```{r batch-correct}
+if (!(file.exists(
+  here("processed", project,  "sce_oligo_corrected.RDS")
+))) {
+set.seed(100)
+sce <- correctExperiments(sce,
+  batch = factor(sce$chip),
+  subset.row = rowSubset(sce),
+  correct.all=TRUE,
+  PARAM = FastMnnParam(
+  merge.order = 
+    list(list("3","5"), list("4","6")),
+  d = 25,
+  prop.k=0.10
+  )
+)
+# recompute dimensional reduction 
+#keeping  the previous dimensional reduction
+reducedDim(sce, "TSNE_uncorrected") <- reducedDim(sce, "TSNE")
+set.seed(100)
+sce <- runTSNE(sce,  dimred="corrected")
+# save
+saveRDS( sce, here("processed", project,  "sce_oligo_corrected.RDS"))
+}
+plotReducedDim(sce, colour_by= "chip", dimred = "TSNE") + 
+      ggtitle("TSNE dimensional reduction corrected")
+```

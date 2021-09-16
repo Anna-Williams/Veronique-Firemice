@@ -1,0 +1,38 @@
+---
+title: "Differential Expression Oligos MAST"
+author: "Nadine Bestard"
+date: "15/09/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setup
+
+```{r set-up, message=FALSE, warning=FALSE}
+# libraries
+library(Seurat) # for scrnaseq analyisis
+library(here)   # for reproducible paths
+library(dplyr) # manipulated df
+library(SingleCellExperiment) # for sce object import
+```
+```{r load}
+project <- "fire-mice"
+sce <- readRDS(here("processed", project, "sce_oligo_clusters_01.RDS")) 
+# only load the raw data, that is needed for DE
+srt <- as.Seurat(sce, counts = "counts")
+Idents(srt) <- "genotype"
+```
+
+# DE 
+
+“MAST” : GLM-framework that treates cellular detection rate as a covariate (Finak et al, Genome Biology, 2015) 
+
+```{r}
+de_mast <- FindMarkers(srt, ident.1 = "KO", ident.2 = "WT", test.use = "MAST")
+saveRDS(de_mast, here("processed", project, "de_oligo_mast.RDS"))
+write.csv(de_mast, here("outs", project, "DE_oligo_MAST", "de_oligo_mast.csv") )
+```
+

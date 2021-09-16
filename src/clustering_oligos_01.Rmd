@@ -1,0 +1,117 @@
+---
+title: "Clustering"
+author: "NadineBestard"
+date: "06/05/2021"
+output: html_document
+---
+### Set-up
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The workflow and explanations bellow are from [OSCA](https://bioconductor.org/books/release/OSCA/dimensionality-reduction.html)
+
+```{r set-up, message=FALSE, warning=FALSE}
+library(SingleCellExperiment)
+library(here) #reproducible paths
+library(scater) # Plot dimred
+library(bluster) # Clustering 
+library(clustree) # show relationship clustering
+```
+
+```{r}
+project <- "fire-mice"
+```
+
+```{r load-sce}
+if(!file.exists(here("processed", project, "sce_oligo_clusters_01.RDS"))){
+sce <- readRDS(here("processed", project, "sce_oligo_corrected.RDS"))
+} else {
+  sce <- readRDS(here("processed", project, "sce_oligo_clusters_01.RDS"))
+}
+```
+
+### Motivation
+
+Clustering is an unsupervised learning procedure that is used in scRNA-seq data analysis to empirically define groups of cells with similar expression profiles. It is worth stressing the distinction between clusters and cell types. The former is an empirical construct while the latter is a biological truth (albeit a vaguely defined one). For this reason, questions like “what is the true number of clusters?” are usually meaningless. We can define as many clusters as we like, with whatever algorithm we like - each clustering will represent its own partitioning of the high-dimensional expression space, and is as “real” as any other clustering.
+It is helpful to realize that clustering, like a microscope, is simply a tool to explore the data. We can zoom in and out by changing the resolution of the clustering parameters, and we can experiment with different clustering algorithms to obtain alternative perspectives of the data.
+
+
+```{r cluster}
+# choose the resolutions to compute
+ks <- c(10, 80, 100, 120, 150)
+# note: I tried the 200 and it gave more clusters than 80 !?
+names <- paste0("cluster_oligo_k", as.character(ks))
+
+#only run if first time
+
+if (!file.exists(here("processed", project, "clusters_oligo_SNN_k10-k150.RDS"))) {
+  # Compute all the cluster resolutions
+  #  and save in a list with an appropriate name for later use
+  clusters_list <-
+    mapply(function(cluster_name, k) {
+      clusterRows(reducedDim(sce), NNGraphParam(k = k))
+    },
+    names,
+    ks,
+    USE.NAMES = TRUE,
+    SIMPLIFY = FALSE)
+  saveRDS(clusters_list,
+          here("processed", project, "clusters_oligo_SNN_k10-k150_01.RDS"))
+} else{
+  clusters_list <-
+    readRDS(here("processed", project, "clusters_oligo_SNN_k10-k150_01.RDS"))
+}
+
+# only save the new sce if the object is not already here
+if(!file.exists((here("processed", project, "sce_oligo_clusters_01.RDS")))){
+  
+  # Use the list to store the info in the sce and plot result
+  idx <- c(1:length(names))
+  for (i in idx) {
+    k <- ks[i]
+    cluster_name <- names[i]
+    colData(sce) <- cbind(colData(sce), clusters_list[cluster_name])
+    plotDim <-
+      plotReducedDim(
+        sce,
+        "TSNE",
+        colour_by = cluster_name,
+        point_size = 0.5,
+        point_alpha = 0.3,
+        text_by = cluster_name,
+        text_size = 3
+      )  + scale_color_hue() + ggtitle(paste("Clustering with k =", k))
+    print(plotDim)
+  }
+  saveRDS(sce, here("processed", project, "sce_oligo_clusters_01.RDS"))
+  
+} else{
+  # plot directly from the sce_oligo_clusters_01.RDS
+  idx <- c(1:length(names))
+  for (i in idx) {
+    k <- ks[i]
+    cluster_name <- names[i]
+    plotDim <-
+      plotReducedDim(
+        sce,
+        "TSNE",
+        colour_by = cluster_name,
+        point_size = 0.5,
+        point_alpha = 0.3,
+        text_by = cluster_name,
+        text_size = 3
+      )  + scale_color_hue() + ggtitle(paste("Clustering with k =", k))
+    print(plotDim)
+  }
+}
+```
+
+### Cluster tree
+We use this visualisation to see the relationships between the clusters. The aim is to capture the redistribution of cells from one clustering to another at progressively higher resolutions, providing a convenient depiction of how clusters merge or split apart. 
+```{r fig.height=14, fig.width=14}
+clustree(sce, prefix = "cluster_oligo_k", edge_arrow = FALSE)
+```
+

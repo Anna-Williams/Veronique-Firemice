@@ -1,0 +1,124 @@
+---
+title: "Differential abundance"
+author: "Nadine Bestard"
+date: "26/07/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### set-up
+
+```{r set-up, messproject=FALSE, warning=FALSE}
+library(SingleCellExperiment)
+library(here) # reproducible paths
+library(scater) # plot reduced dims
+library(dplyr) #manipulate df
+library(scran) # for findmarkers
+library(Seurat) # for DE with mean 
+library(pals) # for palettes with large n #kelly()22, #polychrome()#36, cols25()
+```
+
+```{r load}
+project <- "fire-mice"
+sce <- readRDS(here("processed", project, "sce_oligo_clusters_01.RDS")) 
+```
+
+```{r pals}
+# remove the black and white from the pallete, still 20 colours left
+kelly_col <- unname(kelly()[-c(1,2)])
+```
+### Dimensional reduction
+
+```{r fig.width=10, messproject=FALSE}
+# divide the two objects
+sce_ko <- sce[,sce$genotype == "KO"]
+sce_ctr <- sce[,sce$genotype == "WT"]
+# plot them side by side
+gridExtra::grid.arrange(
+plotTSNE(sce_ctr, colour_by = "cluster_oligo_k80", point_size=0.5, text_by = "cluster_oligo_k80", text_size = 3) +
+  scale_color_manual(values = kelly_col) +
+  ggtitle("control"), 
+plotTSNE(sce_ko, colour_by = "cluster_oligo_k80", point_size=0.5, text_by = "cluster_oligo_k80", text_size = 3) +
+  scale_color_manual(values = kelly_col) +
+  ggtitle("fire mice"),
+ncol = 2
+)
+```
+
+#### Proportion KO-WT
+
+```{r}
+
+# count how many cells from each gnt group  there are per cluster
+sum_per_gnt_cluster <- table(sce$genotype, sce$cluster_oligo_k80 )
+
+# normalise per cluster, looking how the KO and WT are distributed
+# across the clusters, to give to both groups the same weight
+prop_per_cluster <- prop.table(sum_per_gnt_cluster, margin = 1)
+
+# calculate the proportions for each cluster
+prop_per_gnt <- round(prop.table(prop_per_cluster , margin = 2 )*100, 2)
+
+# Display
+prop_per_gnt <- as.data.frame(prop_per_gnt)
+colnames(prop_per_gnt) <- c("Genotype", "cluster", "Proportion")
+
+prop_per_gnt %>% 
+  filter(Genotype == "KO") %>% 
+  arrange(desc(Proportion))
+
+```
+
+visualise in a plot
+
+```{r plot}
+ggplot(data = prop_per_gnt, aes(x = cluster, y = Proportion, fill = Genotype)) +
+  geom_bar(position = "fill", stat = "identity") + theme_classic()+
+  scale_fill_manual(values = c("#888888", "#E25822")) +
+theme(axis.text.x = element_text(angle = 45, hjust=1, vjust = 1)) +
+  labs( x = element_blank(), 
+        y = element_text("Normalised Proportion"))
+
+```
+
+
+#### Markers for each cluster
+
+
+We compute here a pairwise differential expression between all the clusters. The results are saved in a list of dataframes, one for each cluster. A .csv file (that can be opened with a spreadsheet program) for each cluster is available in “markers_oligo_k80”.
+
+The default philosophy of findMarkers() from `scran` is to identify a combination of marker genes that - together - uniquely define one cluster against the rest. To this end, we collect the top DE genes from each pairwise comparison involving a particular cluster to assemble a set of candidate markers for that cluster. Of particular interest is the Top field. The set of genes with Top ≤X
+is the union of the top X genes (ranked by p-value) from each pairwise comparison involving the cluster of interest. For example, the set of all genes with Top values of 1 contains the gene with the lowest p-value from each comparison. Similarly, the set of genes with Top values less than or equal to 10 contains the top 10 genes from each comparison.
+
+```{r}
+# compute markers
+if(!file.exists(here("processed", project, "markers_pairwise_oligo_k80.RDS"))){
+  dir.create(here("outs", project, "markers_oligo_k80"))
+  markers <- findMarkers(sce, groups = sce$cluster_oligo_k80, direction="up", lfc=1)
+  saveRDS(markers, here("processed", project, "markers_oligo_k80.RDS"))
+  # save the top 100 genes for each one of the df
+  lapply(names(markers), function(x){
+    top_markers <- head(markers[[x]], 100)
+    write.csv(top_markers, here("outs", project, "markers_pairwise_oligo_k80", paste0("top_markers_", x, "oligo_k80.csv")), quote = FALSE)
+    }
+  )
+}
+```
+
+##### Specifically finding markers for 2
+
+With Seurat we can find markers that define a cluster by computing the differential expression between that cluster and all other cells.
+
+```{r}
+if(!file.exists(here("processed", project, "markers_mean_oligo_k80.RDS"))){
+  srt <- as.Seurat(sce, counts = "counts")
+  Idents(srt) <- "cluster_oligo_k80"
+  cluster_2 <- FindMarkers(srt, ident.1 = 2, min.pct = 0.2)
+  write.csv(cluster_2,here("outs", project, "markers_mean_oligo_k80", "markers_2oligo_k80.csv"))
+  saveRDS(cluster_2,here("processed", project, "markers_mean_2_oligo_k80.RDS"))
+}
+```
+

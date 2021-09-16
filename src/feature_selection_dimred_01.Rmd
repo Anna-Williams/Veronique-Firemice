@@ -1,0 +1,141 @@
+---
+title: "Feature Selection and Dimensional reduction"
+author: "NadineBestard"
+date: "10/03/2021"
+output: html_document
+---
+
+# Set-up
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+The workflow and explanations bellow are from [OSCA](https://bioconductor.org/books/release/OSCA/dimensionality-reduction.html)
+
+```{r set-up, message=FALSE, warning=FALSE}
+library(SingleCellExperiment)
+library(scran) # For feature selcetion
+library(scater) # for pca
+library(ggplot2) # modify plots
+library(here) #reproducible paths
+```
+
+```{r}
+project <- "fire-mice"
+```
+
+```{r load-sce}
+sce <- readRDS(here("processed", project, "sce_norm_01.RDS"))
+```
+
+# Feature selection
+
+## Motivation
+
+We often use scRNA-seq data in exploratory analyses to characterize heterogeneity across cells. Procedures like clustering and dimensionality reduction compare cells based on their gene expression profiles, which involves aggregating per-gene differences into a single (dis)similarity metric between a pair of cells. The choice of genes to use in this calculation has a major impact on the behavior of the metric and the performance of downstream methods. We want to select genes that contain useful information about the biology of the system (Highly variable genes, HVGs) while removing genes that contain random noise. This aims to preserve interesting biological structure without the variance that obscures that structure, and to reduce the size of the data to improve computational efficiency of later steps.
+
+## Quantify per-gene variation
+
+We quantify per-gene variation computing the variance of the log-normalized expression values (referred to as "log-counts" for simplicity) for each gene across all cells in the population (A. T. L. Lun, McCarthy, and Marioni 2016). We use modelGeneVar() that does also corrects for the abundance of each gene.
+
+```{r}
+#The density weights are removed because the genes
+# with highest mean abundance are also HVG, this avoids overfiting
+gene_var_df <- modelGeneVar(sce, density.weights=FALSE )
+gene_var <- metadata(gene_var_df)
+plot(gene_var$mean, gene_var$var, xlab= "Mean of log-expression", ylab= "Variance of log-expression")
+curve(gene_var$trend(x), lwd=2, add=T, col = "red")
+```
+
+## Select the HVGs
+
+The next step is to select the subset of HVGs to use in downstream analyses. The simplest HVG selection strategy is to take the top X genes with the largest values for the relevant variance metric. Here I select the top 15 % of genes.
+
+```{r}
+hvgs <- getTopHVGs(gene_var_df, prop=0.15)
+# save them in the object
+rowSubset(sce) <- hvgs
+```
+
+This leaves us with `r length(hvgs)` highly variable genes.
+
+```{r}
+plot(gene_var$mean, gene_var$var, xlab= "Mean of log-expression", ylab= "Variance of log-expression")
+points(gene_var$mean[hvgs], gene_var$var[hvgs], col = "red")
+curve(gene_var$trend(x), lwd=2, add=T, col = "red")
+```
+
+# Dimensionality reduction
+
+## Motivation
+Principal components analysis (PCA) discovers axes in high-dimensional space that capture the largest amount of variation. When applying PCA to scRNA-seq data, our assumption is that biological processes affect multiple genes in a coordinated manner. This means that the earlier PCs are likely to represent biological structure as more variation can be captured by considering the correlated behavior of many genes. By comparison, random technical or biological noise is expected to affect each gene independently. There is unlikely to be an axis that can capture random variation across many genes, meaning that noise should mostly be concentrated in the later PCs. This motivates the use of the earlier PCs in our downstream analyses, which concentrates the biological signal to simultaneously reduce computational work and remove noise.
+
+
+
+## Run PCA and choose PCs
+```{r}
+set.seed(100)
+sce <- runPCA(sce)
+```
+
+```{r}
+pct_var <- attr(reducedDim(sce, "PCA"), "percentVar")
+plot(pct_var, log="y", xlab="PC", ylab="pct variance explained")
+```
+
+
+I tried to use some of the PCAtools features to estimate
+the number of PCs, such as the elbow and  Horn's parallel analysis, but both yield a result lower than 15 PCs. These 
+methods tend to underestimate the number of PCs to use, and 
+it is recommended using between 20 and 40 PCs. I will keep 25 PCs.
+
+```{r}
+#keep the previous dimensional reduction just in case
+reducedDim(sce, "PCA_all") <- reducedDim(sce, "PCA")
+# And replace the default PCA with the reduced PCs
+reducedDim(sce, "PCA") <- reducedDim(sce, "PCA")[,1:25]
+```
+
+## Visualisation
+For visualisation, reduce to 2 dimensions. Non linear reductions.
+
+### UMAP
+```{r}
+set.seed(100)
+sce <- runUMAP(sce, dimred="PCA")
+plotReducedDim(sce, dimred="UMAP", colour_by="genotype", point_size=0.1, point_alpha = 0.3)
+```
+
+### tSNE
+```{r}
+set.seed(100)
+sce <- runTSNE(sce, dimred="PCA")
+plotReducedDim(sce, dimred="TSNE", colour_by="genotype", point_size=0.1)
+plotReducedDim(sce, dimred="TSNE", colour_by="chip", point_size=0.1)
+plotReducedDim(sce, dimred="TSNE", colour_by="Sample", point_size=1)
+```
+
+Reducing the number of genes to the most variables already improves the dimensional reduction, but there is still a clear batch effect.
+
+## Save objects
+```{r}
+saveRDS(sce, here("processed", project, "sce_dimred_01.RDS"))
+```
+
+## Session Info
+
+<details>
+
+<summary>
+
+Click to expand
+
+</summary>
+
+```{r session-info}
+sessionInfo()
+```
+
+</details>

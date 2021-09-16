@@ -1,0 +1,226 @@
+---
+title: "Normalisation"
+author: "NadineBestard"
+date: "08/03/2021"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 80
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Set-up
+
+```{r set-up, message=FALSE, warning=FALSE}
+library(here) # for reproducible paths
+library(SingleCellExperiment)
+library(scater) # For qc and visualisation
+library(scran) # For normalisation
+library(Matrix) # For log transorming the raw data
+library(ggplot2) # To add titles to plots
+```
+
+```{r matlog2}
+# Adapted function from VISION to log tranform sparse matrix
+# I could not download the package
+matLog2 <- function(spmat, scale = FALSE, scaleFactor = 1e6) {
+
+
+    if (scale == TRUE) {
+        spmat <- t( t(spmat) / colSums(spmat)) * scaleFactor
+    }
+
+    if (is(spmat, "sparseMatrix")) {
+        matsum <- summary(spmat)
+
+        logx <- log2(matsum$x + 1)
+
+        logmat <- sparseMatrix(i = matsum$i, j = matsum$j,
+                               x = logx, dims = dim(spmat),
+                               dimnames = dimnames(spmat))
+    } else {
+        logmat <- log2(spmat + 1)
+    }
+
+
+    return(logmat)
+
+}
+
+```
+
+```{r project}
+project <- "fire-mice"
+```
+
+# Normalisation by deconvolution
+
+In order to correct for systematic differences in sequencing coverage between
+libraries we will normalise the dataset. This involves dividing all counts for
+each cell by a cell-specific scaling factor, often called a "size factor"
+(Anders and Huber 2010). The assumption here is that any cell-specific bias
+(e.g., in capture or amplification efficiency) affects all genes equally via
+scaling of the expected mean count for that cell. The size factor for each cell
+represents the estimate of the relative bias in that cell, so division of its
+counts by its size factor should remove that bias.
+
+Specifically we will used the deconvolution method available in the `scran`
+package. This method allows to take in consideration the composition bias
+between samples [(Lun et al.,
+2016)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4848819/)
+
+```{r norm}
+# Only compute if first time
+if (!(file.exists(here("processed", project,  "sce_norm_01.RDS")))) {
+  sce <- readRDS(here("processed", project, "sce_QC_01.RDS"))
+  # For reproducibility
+  set.seed(100)
+  # Quick clustering to pool samples together and deal with 0 counts
+  quick_clusters <- quickCluster(sce)
+  # Calculate size factors
+  sce <- computeSumFactors(sce, cluster = quick_clusters, min.mean = 0.1)
+  # Check that there are not negative size factors
+  summary(sizeFactors(sce))
+  # Apply size factors and log transform them
+  sce <- logNormCounts(sce)
+  # Also log normalise the raw counts
+  assay(sce, "logcounts_raw") <- matLog2(counts(sce))
+  saveRDS(sce, here("processed", project,  "sce_norm_01.RDS"))
+} else{
+  sce <- readRDS(here("processed", project,  "sce_norm_01.RDS"))
+}
+```
+
+On top of normalisation the data is also log-transformed. The log-transformation
+is useful as differences in the log-values represent log-fold changes in
+expression. Or in other words, which is more interesting - a gene that is
+expressed at an average count of 50 in cell type A and 10 in cell type B, or a
+gene that is expressed at an average count of 1100 in A and 1000 in B?
+Log-transformation focuses on the former by promoting contributions from genes
+with strong relative differences.
+
+# Assess Confunding factors impact
+
+## Variance Explained plots
+
+Variable-level metrics are computed by the getVarianceExplained() function
+(before and after normalization). This calculates the percentage of variance of
+each gene's expression that is explained by each variable in the colData of the
+SingleCellExperiment object. We can then use this to determine which
+experimental factors are contributing most to the variance in expression. This
+is useful for diagnosing batch effects or to quickly verify that a treatment has
+an effect.
+
+The percentage of variance explained by a factor is on the x axis, and in the y
+axis there is the density of the R-squared values across all genes.
+
+The "total" label is the total number of molecules, that correlates with the
+detected number of genes, "detected".
+
+### Before normalisation
+
+Before normalisation it is expected that most variance will be explained by the
+sequencing depth, i.e. the total number of umis and the total number of genes
+
+```{r var}
+# Before normalisation
+# Only compute if first time
+if (!(file.exists(here("processed", project,  "variance_explained.RDS")))) {
+  # Calculate the matrix (time consuming step)
+  var <- getVarianceExplained(
+    sce,
+    exprs_values = "logcounts_raw",
+    variables = c(
+      "chip",
+      "genotype",
+      "mouse",
+      "subsets_mt_percent",
+      "detected",
+      "total"
+    )
+  )
+  saveRDS(var, here("processed", project,  "variance_explained.RDS"))
+  #If not just load created object
+} else {
+  var <- readRDS(here("processed", project,  "variance_explained.RDS"))
+}
+plotExplanatoryVariables(var)
+```
+
+### After normalisation
+
+We can see how there is less variance explained now by factors such as the
+detected genes or the number of counts
+
+```{r var_norm}
+# After normalisation
+if (!(file.exists(here("processed", project,  "variance_explained_norm.RDS")
+))) {
+  var_norm <- getVarianceExplained(
+    sce,
+    variables = c(
+      "chip",
+      "genotype",
+      "mouse",
+      "subsets_mt_percent",
+      "detected",
+      "total"
+    )
+  )
+  saveRDS(var_norm, here("processed", project,  "variance_explained_norm.RDS"))
+} else{
+  var_norm <- readRDS(here("processed", project,  "variance_explained_norm.RDS"))
+}
+plotExplanatoryVariables(var_norm)
+```
+
+## Dimensional reduction
+
+_We will more accurate dimensional reductions in the next step, only using the most variable genes to reduce noise_
+Another way to assess the variance is with a PCA plot. Here again we can see how
+the sequencing depth(sum) explains most of the variance before the normalisation
+
+```{r pca}
+raw <- runPCA(sce, exprs_values = "logcounts_raw")
+plotPCA(raw, colour_by= "chip", size_by="sum") + ggtitle("Before normalisation")
+
+sce <- runPCA(sce)
+plotPCA(sce, colour_by= "chip", size_by="sum") + ggtitle("After normalisation")
+plotPCA(sce, colour_by= "chip", point_size=0.1) + 
+  ggtitle("After normalisation, small dots")
+```
+
+Another type of dimensional reduction are the non linear UMAP and TSNE reductions.
+<!-- This is better -->
+<!-- to assess how integrated the data is.  -->
+```{r umap}
+sce <- runUMAP(sce,  dimred="PCA")
+plotReducedDim(sce, colour_by= "chip", point_size=0.1, dimred = "UMAP") + 
+      ggtitle("UMAP dimensional reduction")
+```
+```{r tsne}
+sce <- runTSNE(sce,  dimred="PCA")
+plotReducedDim(sce, colour_by= "chip", point_size=0.1, dimred = "TSNE") + 
+      ggtitle("TSNE dimensional reduction")
+```
+
+
+## Session Info
+
+<details>
+
+<summary>
+
+Click to expand
+
+</summary>
+
+```{r session-info}
+sessionInfo()
+```
+
+</details>
