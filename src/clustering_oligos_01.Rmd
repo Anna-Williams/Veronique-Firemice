@@ -115,3 +115,20 @@ We use this visualisation to see the relationships between the clusters. The aim
 clustree(sce, prefix = "cluster_oligo_k", edge_arrow = FALSE)
 ```
 
+### Find intermediate clustering 
+
+Cluster 1 from resolution k100 would be nice to keep, as it is different between WT and KO
+
+```{r}
+plotTSNE(sce, colour_by = "genotype")
+```
+
+However, three our four clusters is a sufficient number for this dataset, we therefore merge some as in k150 (or k80)
+
+```{r}
+sce$cluster_oligo <- sce$cluster_oligo_100
+# replace 1 2 3 4 5 6 by 1 2 3 4 3 2
+levels(sce$cluster_oligo) <- c(1, 2, 3, 4, 2, 3)
+saveRDS(sce, here("processed", project, "sce_oligo_clusters_01.RDS"))
+```
+
