@@ -1,0 +1,89 @@
+---
+title: "Differential Expressino Oligos edgeR"
+author: "Nadine Bestard"
+date: "17/09/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+#### set-up
+```{r}
+library(scran) # for scDE
+library(scater) # for aggregate counts
+library(edgeR) #for De
+library(here) # reproducible paths
+```
+```{r load}
+project <- "fire-mice"
+sce <- readRDS(here("processed", project, "sce_oligo_corrected.RDS")) 
+```
+
+## Pre processed
+
+Sum the counts
+```{r}
+summed <- aggregateAcrossCells(sce, 
+    id=colData(sce)[,"Sample"])
+```
+
+```{r}
+# create DGElist
+dge_summed <- DGEList(counts(summed), samples=colData(summed))
+# filter out samples with low number of cells (with such big groups this shouldn't be a problem)
+dge_summed <- dge_summed[, summed$ncells >= 10]
+# Filter genes with specific function from edgeR
+keep <- filterByExpr(dge_summed, group=summed$genotype)
+dge_summed <- dge_summed[keep,]
+summary(keep)
+```
+
+## Run edgeR pipeline
+```{r}
+dge_summed <- calcNormFactors(dge_summed)
+par(mfrow=c(2,4))
+for (i in seq_len(ncol(dge_summed))) {
+    plotMD(dge_summed, column=i)
+}
+```
+
+
+```{r}
+plotMDS(cpm(dge_summed, log=TRUE), 
+    col=ifelse(dge_summed$samples$genotype == "KO", "red", "blue"))
+
+# Build teh design
+# Reordering the genotype factor, treated should be second level
+dge_summed$samples$genotype <- factor(dge_summed$samples$genotype, levels = c("WT", "KO"))
+design <- model.matrix(~factor(chip) + factor(genotype), dge_summed$samples)
+
+# estimate dispersions
+dge_summed <- estimateDisp(dge_summed, design)
+fit <- glmQLFit(dge_summed, design, robust=TRUE)
+
+# Run DE
+de_results <- glmQLFTest(fit, coef=ncol(design))
+
+# save results
+write.csv(topTags(de_results, n = 500), here("outs", project, "DE_oligo_edgeR", "de_oligo_edgeR.csv"))
+
+saveRDS(de_results, here("processed", project, "DE_oligo_edgeR_de_results.RDS"))
+```
+
+
+**Output:**
+
+LogFC is the log fold-change, which is the log difference between both groups
+
+LogCPM are the log counts per million, which can be understood as measuring expression level.
+
+F is the F-statistic from the quasi-likelihood F-test.
+
+PValue is the nominal p-value derived from F without any multiple testing correction
+
+FDR (False discovery rate) is the PValue after Benjamini-Hochberg correction.  For example, the set of genes with adjusted p value less than 0.1 should contain no more than 10% false positives.
+
+
