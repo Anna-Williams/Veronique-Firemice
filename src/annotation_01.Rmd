@@ -30,9 +30,9 @@ if (!file.exists(here("processed", project, "sce_anno_01.RDS"))) {
   sce <- readRDS(here("processed", project, "sce_anno_01.RDS"))
 }
 ```
-## Clustering at k40
+## Clustering at k60
 ```{r}
-plotTSNE(sce, colour_by = "cluster_k40", text_by = "cluster_k40") + scale_color_hue()
+plotTSNE(sce, colour_by = "cluster_k60", text_by = "cluster_k60") + scale_color_hue()
 ```
 
 ## Annotation
@@ -52,7 +52,7 @@ wrap_plots(list_plots) +  plot_annotation(title = "Neurons")
 
 ```{r violin-neuro, fig.height=4}
 plotExpression(sce, features=c("Snap25", "Stmn2", "Rbfox3", "Gabrb2") ,
-    x="cluster_k40", colour_by = "cluster_k40", ncol=1) + scale_color_hue()
+    x="cluster_k60", colour_by = "cluster_k60", ncol=1) + scale_color_hue()
 ```
 
 ```{r 4-feature-plots-default, cache=TRUE}
@@ -65,7 +65,7 @@ wrap_plots(list_plots) +  plot_annotation(title =  "Inhibitory Neurons")
 
 ```{r violin-neuroin, fig.height=4, cache=TRUE}
 plotExpression(sce, features=c("Gad1", "Gad2", "Slc32a1", "Pvalb"),
-    x="cluster_k40", colour_by = "cluster_k40", ncol=1) + scale_color_hue()
+    x="cluster_k60", colour_by = "cluster_k60", ncol=1) + scale_color_hue()
 ```
 
 ```{r one-line, fig.height=3, fig.width=9, cache=TRUE}
@@ -78,7 +78,7 @@ wrap_plots(list_plots) +  plot_annotation(title =  "Exitatory Neurons")
 
 ```{r violin-neuroex, fig.height=3, cache=TRUE}
 plotExpression(sce, features=c("Satb2", "Slc12a6", "Slc17a7"),
-    x="cluster_k40", colour_by = "cluster_k40", ncol=1) + scale_color_hue()
+    x="cluster_k60", colour_by = "cluster_k60", ncol=1) + scale_color_hue()
 ```
 
 ```{r 4-plots, cache=TRUE}
@@ -90,7 +90,7 @@ wrap_plots(list_plots) +  plot_annotation(title =  "RBFO3+ Neurons")
 
 ```{r violin-neurorbfox, fig.height=4, cache=TRUE}
 plotExpression(sce, features=c("Cdh15", "Calb2", "Rbfox3", "Reln"),
-    x="cluster_k40", colour_by = "cluster_k40", ncol=1) + scale_color_hue()
+    x="cluster_k60", colour_by = "cluster_k60", ncol=1) + scale_color_hue()
 ```
 
 </details>
@@ -116,7 +116,7 @@ plotExpression(sce, features=c( "Lamb1" ,
                                      "Col4a1", 
                                      "Fn1", 
                                      "Lama2"),
-    x="cluster_k40", colour_by = "cluster_k40", ncol=1) + scale_color_hue()
+    x="cluster_k60", colour_by = "cluster_k60", ncol=1) + scale_color_hue()
 ```
 
 ```{r 3lines-feature-plots, fig.height=8, cache=TRUE}
@@ -141,7 +141,7 @@ plotExpression(sce, features=c( "Cldn5",
                                      "Vwf",
                                      "Flt1",
                                      "Mecom"),
-    x="cluster_k40", colour_by = "cluster_k40", ncol=1) + scale_color_hue()
+    x="cluster_k60", colour_by = "cluster_k60", ncol=1) + scale_color_hue()
 ```
 
 </details>
@@ -156,7 +156,7 @@ wrap_plots(list_plots) +  plot_annotation(title =  "Choroid plexus epithelial ce
 
 ```{r violin-epi, fig.height=3, cache=TRUE}
 plotExpression(sce, features=c("Ttr", "Kcnj13", "Krt18"),
-    x="cluster_k40", colour_by = "cluster_k40", ncol=1) + scale_color_hue()
+    x="cluster_k60", colour_by = "cluster_k60", ncol=1) + scale_color_hue()
 ```
 
 </details>
@@ -194,7 +194,7 @@ plotExpression(sce, features=c("Gja1",
                                     "Vim", 
                                     "Apoe", 
                                     "Fgfr3"),
-    x="cluster_k40", colour_by = "cluster_k40", ncol=1) + scale_color_hue()
+    x="cluster_k60", colour_by = "cluster_k60", ncol=1) + scale_color_hue()
 ```
 
 ```{r 3lines-feature-plots-2, cache=TRUE, fig.height=9, fig.width=9}
@@ -243,7 +243,7 @@ plotExpression(sce, features=c( "Cd74",
                                      "P2ry12",
                                      "C1qc",
                                      "C1qa"),
-    x="cluster_k40", colour_by = "cluster_k40", ncol=1) + scale_color_hue()
+    x="cluster_k60", colour_by = "cluster_k60", ncol=1) + scale_color_hue()
 ```
 
 ```{r  3-in-one-line, fig.height=4, cache=TRUE}
@@ -255,7 +255,7 @@ wrap_plots(list_plots) +  plot_annotation(title = "Border associated macrophages
 
 ```{r violin-bam, fig.height=3, cache=TRUE}
 plotExpression(sce, features=c( "Mrc1", "Ms4a7", "Apoe"),
-    x="cluster_k40", colour_by = "cluster_k40", ncol=1) + scale_color_hue()
+    x="cluster_k60", colour_by = "cluster_k60", ncol=1) + scale_color_hue()
 ```
 
 ```{r  two-lines, fig.height=8, cache=TRUE}
@@ -286,7 +286,7 @@ plotExpression(sce, features=c(
   "Klrb1c", "Cd209a", 
   # all immune cells (CD45)
   "Ptprc"),
-    x="cluster_k40", colour_by = "cluster_k40", ncol=1) + scale_color_hue()
+    x="cluster_k60", colour_by = "cluster_k60", ncol=1) + scale_color_hue()
 ```
 
 ```{r fig.height=4}
@@ -309,7 +309,7 @@ plotExpression(sce, features=c(
   "S100a9",
   #neutrophils
   "Ly6g", "Camp"),
-    x="cluster_k40", colour_by = "cluster_k40", ncol=1) + scale_color_hue()
+    x="cluster_k60", colour_by = "cluster_k60", ncol=1) + scale_color_hue()
 ```
 
 </details>
@@ -342,7 +342,7 @@ plotExpression(sce, features=c("Pdgfra",
                                     "Pcdh15", 
                                     "Ptgds",
                                     "Bcan"),
-    x="cluster_k40", colour_by = "cluster_k40", ncol=1) + scale_color_hue()
+    x="cluster_k60", colour_by = "cluster_k60", ncol=1) + scale_color_hue()
 ```
 
 ```{r big-feature-plots5, cache=TRUE, fig.height=8}
@@ -367,7 +367,7 @@ plotExpression(sce, features=c("Plp1",
                                     "Mobp", 
                                     "Mbp", 
                                     "Sox10" ),
-    x="cluster_k40", colour_by = "cluster_k40", ncol=1) + scale_color_hue()
+    x="cluster_k60", colour_by = "cluster_k60", ncol=1) + scale_color_hue()
 ```
 
 </details>
@@ -391,11 +391,11 @@ one for each cluster.
 
 ```{r}
 # compute markers
-if(!file.exists(here("outs", project, "markers_k40_01.RDS"))){
-  markers <- findMarkers(sce, groups = sce$cluster_k40, direction="up", lfc=1)
-  saveRDS(markers, here("outs", project, "markers_k40_01.RDS"))
+if(!file.exists(here("outs", project, "markers_k60_01.RDS"))){
+  markers <- findMarkers(sce, groups = sce$cluster_k60, direction="up", lfc=1)
+  saveRDS(markers, here("outs", project, "markers_k60_01.RDS"))
 }else{
-  markers <- readRDS(here("outs", project, "markers_k40_01.RDS"))
+  markers <- readRDS(here("outs", project, "markers_k60_01.RDS"))
 }
 ```
 
@@ -447,11 +447,11 @@ clustering as follows
 
 ```{r result, eval=FALSE, include=FALSE}
 if (!file.exists(here("processed", project, "sce_anno_01.RDS"))) {
-sce$celltype <- sce$cluster_k40 
+sce$celltype <- sce$cluster_k60 
 # add the celltypes as described above in the correct order to replace the levels.
 levels(sce$celltype)<-c("")
  saveRDS(sce, here("processed", project, "sce_anno_01.RDS"))
 }
-plotTSNE(sce, colour_by = "celltype", text_by = "cluster_k40") + scale_color_hue()
+plotTSNE(sce, colour_by = "celltype", text_by = "cluster_k60") + scale_color_hue()
 
 ```
