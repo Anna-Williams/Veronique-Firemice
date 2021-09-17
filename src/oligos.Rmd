@@ -24,13 +24,13 @@ library(batchelor) # Batch correction
 
 ## Import
 
-We import the dataset and subset for the clusters that had highest expression of Plp1 (they also had higher expression of other typical oligo genes such as Mog, Mag, Mbp). This includes clusters that also express genes from other celltypes, such as the OligoAstros, that express Astrocyte markers; a cluster that express immune cell markers and another that also expresses OPC markers. 
+We import the dataset and subset for the clusters that had highest expression of Plp1, and did not express other celltype markers. This leave us with three oligo clusters, and we excluded the OligoAstros, that express Astrocyte markers; a cluster that express immune cell markers (probably microglia prunning, as it was only present in the WT) and the clusters that expressed OPC markers.
 
 
 ```{r}
 project <- "fire-mice"
 sce <- readRDS(here("processed", project, "sce_clusters_01.RDS"))
-sce <- sce[, sce$cluster_k60 %in% c(1,6,5,7, 12, 15, 16)]
+sce <- sce[, sce$cluster_k60 %in% c(5, 12, 15)]
 ```
 
 # Cell and gene QC
@@ -113,14 +113,12 @@ There is a small cluster, lower quality (lower umi and detected genes and higer 
 ```{r tables, paged.print=TRUE}
   table(sce$Sample, sce$cluster_k60) %>% 
   as.data.frame.matrix() %>% 
-  select(1,6,5,7, 12, 15, 16)
+  select(5, 12, 15)
 table(sce$genotype, sce$cluster_k60) %>% 
   as.data.frame.matrix() %>% 
-  select(1,6,5,7, 12, 15, 16)
+  select(5, 12, 15)
 ```
 
-The small cluster only present in the WT also has microglia markers. Most lickeley it comes from microglia
-"eating" oligodendrocytes. We will remove this cluster.
 
 ## Subset to the best quality cells and delete non detectable genes
 
@@ -133,7 +131,7 @@ if (!file.exists(here("processed", project, "sce_oligo.RDS"))) {
   keep_cells <- sce$sum >= 5000 &
     sce$detected >= 2000 &
     sce$subsets_mt_percent <= 10 &
-    !(sce$cluster_k60 %in% c(15, 16))
+    !(sce$cluster_k60 %in% c(15))
   sce <- sce[, keep_cells ]
   # filter genes
   keep_feature <- rowSums(counts(sce) > 0) > 1
