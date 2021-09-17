@@ -52,7 +52,7 @@ if (!file.exists(here("processed", project, "clusters_oligo_SNN_k10-k150.RDS")))
   #  and save in a list with an appropriate name for later use
   clusters_list <-
     mapply(function(cluster_name, k) {
-      clusterRows(reducedDim(sce), NNGraphParam(k = k))
+      clusterRows(reducedDim(sce, "corrected"), NNGraphParam(k = k))
     },
     names,
     ks,
