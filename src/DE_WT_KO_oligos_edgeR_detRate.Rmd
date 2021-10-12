@@ -61,7 +61,9 @@ plotMDS(cpm(dge_summed, log=TRUE),
 # Build teh design
 # Reordering the genotype factor, treated should be second level
 dge_summed$samples$genotype <- factor(dge_summed$samples$genotype, levels = c("WT", "KO"))
-design <- model.matrix(~factor(chip) + factor(genotype), dge_summed$samples)
+# add the detection rate
+dge_summed$samples$cdr <- scale(colMeans(dge_summed$counts > 0))
+design <- model.matrix(~factor(chip) + factor(genotype) + cdr, dge_summed$samples)
 
 # estimate dispersions
 dge_summed <- estimateDisp(dge_summed, design)
@@ -71,9 +73,9 @@ fit <- glmQLFit(dge_summed, design, robust=TRUE)
 de_results <- glmQLFTest(fit, coef=ncol(design))
 
 # save results
-write.csv(topTags(de_results, n = 500), here("outs", project, "DE_oligo_edgeR", "de_oligo_edgeR.csv"))
+write.csv(topTags(de_results, n = 500), here("outs", project, "DE_oligo_edgeR_detRate", "de_oligo_edgeR_detRate.csv"))
 
-saveRDS(de_results, here("processed", project, "DE_oligo_edgeR_de_results.RDS"))
+saveRDS(de_results, here("processed", project, "DE_oligo_edgeR_detRate_de_results.RDS"))
 ```
 
 
