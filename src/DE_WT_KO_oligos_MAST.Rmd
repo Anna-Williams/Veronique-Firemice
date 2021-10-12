@@ -32,7 +32,7 @@ Idents(srt) <- "genotype"
 
 ```{r}
 de_mast <- FindMarkers(srt, ident.1 = "KO", ident.2 = "WT", test.use = "MAST")
-saveRDS(de_mast, here("processed", project, "de_oligo_mast.RDS"))
+saveRDS(de_mast, here("processed", project, "DE_oligo_mast_de_results.RDS"))
 write.csv(de_mast, here("outs", project, "DE_oligo_MAST", "de_oligo_mast.csv") )
 ```
 
