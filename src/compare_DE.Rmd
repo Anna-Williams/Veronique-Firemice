@@ -1,0 +1,139 @@
+---
+title: "Compare DE methods"
+author: "NadineBestard"
+date: "06/05/2021"
+output: html_document
+---
+
+
+I tested a few different methods for DE:
+
+MAST. Listed in [this](https://www.nature.com/articles/nmeth.4612) study as one of the tops methods for sc DE as it adds the detection rate (the fraction of genes expressed in a cell) as a covariate
+
+edgeR. Listed in [this](https://www.nature.com/articles/nmeth.4612) study as one of the top methods for sc DE, it easily allows to add covariates to the design, I added the batch as a covariate. 
+
+edgeR + detection rate: The best method in [this](https://www.nature.com/articles/nmeth.4612)  benchmark study (adding the batch as a covariate but also the detection rate like MAST does)
+
+MAST + batch: I added to the MAST method another covariate to account for the batch as a latent variable. 
+https://www.nature.com/articles/nmeth.4612/figures/5 
+
+### Set-up
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# compare results DE
+
+Mast outputs by default the top 120 genes, I will extract the top 120 genes from the DE done with edgeR in order to compare them. 
+
+```{r}
+# libraries and setup
+library(here) # paths reproducible
+library(edgeR) # DE import from edgeR
+library(dplyr) #manipulatedf
+project <- "fire-mice"
+# import
+de_results_edgeR <- readRDS(here("processed", project, "DE_oligo_edgeR_de_results.RDS"))
+de_results_edgeR_dr <- readRDS(here("processed", project, "DE_oligo_edgeR_detRate_de_results.RDS"))
+top_mast <- readRDS(here("processed", project, "DE_oligo_mast_de_results.RDS"))
+top_mast_batch <- readRDS(here("processed", project, "DE_oligo_mast_batchcorrect_de_results.RDS"))
+top_edge_dr <- data.frame(topTags(de_results_edgeR_dr, n = 120))
+top_edge <- data.frame(topTags(de_results_edgeR, n = 120))
+```
+
+# Explore each dataset
+
+Results in the order: MAST(dr), edgeR(b), edgeR(b)+dr, MAST(dr)+b
+```{r}
+tops <- list(top_mast, top_edge, top_edge_dr, top_mast_batch)
+names(tops) <- c("top_mast", "top_edge", "top_edge_dr", "top_mast_batch")
+
+```
+
+
+### top genes
+```{r}
+lapply(tops, head)
+```
+### log FC and pvalues summaries
+```{r}
+logfc <- lapply(names(tops), function(name){
+  cat("\nMETHOD:", name, "\n")
+  cat("\nlog2FC\n")
+  print(summary(tops[[name]]$logFC))
+  print(summary(tops[[name]]$avg_log2FC)
+        )
+  }
+  )
+pval <- lapply(names(tops), function(name){
+  cat("\nMETHOD:", name, "\n")
+  cat("\nPvalue adjusted\n")
+  print(summary(tops[[name]]$FDR))
+  print(summary(tops[[name]]$p_val_adj)
+        )
+  }
+  )
+```
+
+## Comparisons gene names
+
+```{r}
+# extract just the gene names, and add helpful names
+# b = batch correct
+# dr = detection rate correct
+
+ mast_dr <- row.names(top_mast)
+ mast_dr_b <- row.names(top_mast_batch)
+ edgeR_b <- row.names(top_edge)
+ edgeR_dr_b <- row.names(top_edge_dr)
+```
+ Print for each comparison the number of geens in common, and which ones they are. 
+ 
+```{r}
+compare<- function(method1, method2, genes = TRUE){
+  print(sum(method1 %in% method2))
+  if(genes == TRUE){
+print(method1[method1 %in% method2])
+  }
+}
+```
+
+#### The effect of adding detection rate to edgeR:
+```{r}
+# compare the edgeR between them
+compare(edgeR_b,edgeR_dr_b)
+```
+Only 6 genes in common
+
+
+#### The effect of adding batch correction to MAST:
+```{r}
+# compare the edgeR between them
+compare(mast_dr,mast_dr_b, genes=FALSE)
+```
+MASTs compared between them
+ 
+```{r}
+sum(mast_dr %in% mast_dr_b)
+identical(mast_dr, mast_dr_b)
+identical(sort(mast_dr), sort(mast_dr_b))
+```
+ 
+Almost identical, the same sets of genes are selected, only the values change
+ 
+#### MAST vs edgeR
+
+without detection rate
+```{r}
+# compare the ones with dr between them
+compare(edgeR_b, mast_dr_b)
+```
+with detectino rate
+
+```{r}
+# compare the ones with dr between them
+compare(edgeR_dr_b, mast_dr_b)
+
+```
