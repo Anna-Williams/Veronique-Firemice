@@ -19,7 +19,7 @@ detected <- plotColData(sce, x = "Sample", y = "detected") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 
 mt <- plotColData(sce, x = "Sample", y = "subsets_mt_percent") +
-  ylab("Mithocondrial percentage") +
+  ylab("Mitochondrial percentage") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 
 pdf(here("outs",project, "plots","umi_detected_mt_oligo_beforeQC.pdf"), height = 7, width = 14)
@@ -32,7 +32,7 @@ detected <- plotTSNE(sce, colour_by = "detected", point_size = 0.2) +
 umi <- plotTSNE(sce, colour_by = "sum", point_size = 0.2) +
   ggtitle("UMI count")
 mt <- plotTSNE(sce, colour_by = "subsets_mt_percent", point_size = 0.2) +
-  ggtitle("Mithocondrial percentage")
+  ggtitle("Mitochondrial percentage")
 
 # mark the cells filtered out
 sce$filter <-  !( sce$sum >= 5000 &
@@ -59,7 +59,7 @@ detected <- plotColData(sce, x = "Sample", y = "detected") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 
 mt <- plotColData(sce, x = "Sample", y = "subsets_mt_percent") +
-   ylab("Mithocondrial percentage") + ylim(c(0,15)) +
+   ylab("Mitochondrial percentage") + ylim(c(0,15)) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 
 pdf(here("outs",project, "plots","umi_detected_mt_oligo_afterQC_matchaxis.pdf"), height = 7, width = 14)
@@ -83,10 +83,3 @@ pdf(here("outs",project, "plots","umi_detected_mt_oligo_afterQC_freeaxis.pdf"), 
 print(umi + detected + mt)
 dev.off()
 
-# batch correction( not really umi_detected_mt, should move to another script)
-batch <- plotReducedDim(sce, "TSNE_uncorrected", colour_by="chip") + ggtitle("Dimensional reduction before batch correction")
-batch_correct <- plotReducedDim(sce, "TSNE", colour_by="chip") + ggtitle("Dimensional reduction after batch correction")
-
-pdf(here("outs",project, "plots","batch_correction.pdf"), height = 7, width = 14)
-print(batch + batch_correct)
-dev.off()
