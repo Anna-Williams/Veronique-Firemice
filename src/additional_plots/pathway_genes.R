@@ -24,7 +24,16 @@ plotGroupedHeatmap(sce, features=tgfb1_sub, group="cluster_oligo",
                    center=TRUE, scale=TRUE, cluster_cols=FALSE)#, zlim=c(-3, 3))
 dev.off()
 
+# tiff
+tiff(here("outs",project, "plots","lipid_genes.tiff"), height = 14, width = 7, res=300, units = "in")
+plotGroupedHeatmap(sce, features=lipid, group="cluster_oligo", 
+                   center=TRUE, scale=TRUE, cluster_cols=FALSE)#, zlim=c(-3, 3))
+dev.off()
 
+tiff(here("outs",project, "plots","tgfb1_genes.tiff"), height = 14, width = 7, res=300, units = "in")
+plotGroupedHeatmap(sce, features=tgfb1_sub, group="cluster_oligo", 
+                   center=TRUE, scale=TRUE, cluster_cols=FALSE)#, zlim=c(-3, 3))
+dev.off()
 
 # I tested with violins, but it is not helpful
 pdf(here("outs",project, "plots","lipid_genes_violin.pdf"), height = 14, width = 7)

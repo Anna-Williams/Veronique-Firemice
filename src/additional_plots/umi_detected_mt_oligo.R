@@ -43,9 +43,16 @@ sce$filter <-  !( sce$sum >= 5000 &
 filter <- plotTSNE(sce, colour_by = "filter") +
   ggtitle("Cells filtered out")
 
+# save combination in pdf
 pdf(here("outs",project, "plots","umi_detected_mt_oligo_TSNE.pdf"), height = 7, width = 8)
 print((umi + mt)/( detected + filter))
 dev.off()
+
+# tiff
+tiff(here("outs",project, "plots","umi_detected_mt_oligo_TSNE.tiff"), height = 7, width = 8, res=300, units = "in")
+print((umi + mt)/( detected + filter))
+dev.off()
+
 
 # from after QC (same axis as before QC)
 sce <- readRDS(here("processed",project,"sce_oligo_clusters_01.RDS"))
