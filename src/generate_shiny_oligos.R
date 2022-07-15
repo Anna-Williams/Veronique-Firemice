@@ -30,6 +30,22 @@ conf <- modMetaName(conf,
 conf <- reorderMeta(conf, conf$ID[c(5,13,3,2,4,1,6:12)])
 conf <- modDefault(conf, "genotype", "cluster_oligo")
 
+# change colours
+source(here("src/colours.R"))
+conf <- modColours(conf, meta.to.mod = "genotype", 
+                   new.colours = col_magenta_green)
+
+
+
+metadata_categorical <- c("Sample", "tissue", "mouse", "batch", clusters_oligo)
+for(metadata in metadata_categorical){
+  print(metadata)
+  n_levels <- length(levels(as.factor(sce[[metadata]])))
+  conf <- modColours(conf, meta.to.mod = metadata,
+                     new.colours = cols[1:n_levels])
+}
+
+
 # citation
 citation = list(
   author  = "author",

@@ -11,3 +11,6 @@ cols24 <- unname(cols25()[c(19,22:24,8:14, 1:4, 15:17,6,7,25,18,20,21)])
 cols <- c(kelly_col, cols24, unname(polychrome()))
 #Cols bellow checked with pal.safe
 col_wt_ko <- c("#666666", "#E25822")
+
+col_magenta_green <- c("#D83472", "#008000") # #D83472 ##df5697 #6eb76e
+#test_col_magenta_green <- c("#6eb76e", "#008000" , "#df5697", "#ce0665", "#D83472", "#6eb76e")
