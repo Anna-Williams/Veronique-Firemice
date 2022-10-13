@@ -2,7 +2,11 @@
 
 This repository includes the source code used for the analysis of scRNAseq from ...[cite]...
 
-The order they were run is: 
+The analysed dataset is available as a ShinyApp: https://annawilliams.shinyapps.io/shinyApp_oligos_VM/
+
+The raw data is available in GEO: accession number 
+
+The order the scripts in this repository were run is: 
 
 - import.R
 - QC_01.Rmd
