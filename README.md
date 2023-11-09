@@ -1,10 +1,10 @@
 # Veronique-Firemice
 
-This repository includes the source code used for the analysis of scRNAseq from ...[cite]...
+This repository includes the source code used for the analysis of scRNAseq from  Reference: McNamara N. Microglia regulate central nervous system myelin growth and integrity Nature , (2022) doi: 10.1038/s41586-022-05534-y [Link](https://www.nature.com/articles/s41586-022-05534-y)
 
 The analysed dataset is available as a ShinyApp: https://annawilliams.shinyapps.io/shinyApp_oligos_VM/
 
-The raw data is available in GEO: accession number 
+The raw data is available in GEO: GSE215440
 
 The order the scripts in this repository were run is: 
 
